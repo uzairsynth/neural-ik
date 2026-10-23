@@ -1,0 +1,23 @@
+{
+  "seed": 42,
+  "threads": 2,
+  "epochs_completed": 40,
+  "best_epoch": 38,
+  "best_validation_loss": 0.0007282126857899129,
+  "stop_reason": "wall-time budget",
+  "training_seconds": 362.1895751999691,
+  "train_samples": 160000,
+  "val_samples": 20000,
+  "hyperparameters": {
+    "data": "artifacts/data.npz",
+    "checkpoint": "artifacts/model.pt",
+    "seed": 42,
+    "epochs": 160,
+    "batch_size": 2048,
+    "lr": 0.002,
+    "threads": 2,
+    "patience": 15,
+    "min_delta": 1e-06,
+    "max_seconds": 360.0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "total_seconds": 459.4176983999787,
+  "within_ten_minutes": true,
+  "stages_seconds": {
+    "data.py": 7.149397400091402,
+    "train.py --max-seconds 360": 399.87984369997866,
+    "evaluate.py": 32.058139299973845,
+    "-m pytest -q": 20.330278899986297
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "full_test": {
+    "samples": 20000,
+    "neural": {
+      "mean_position_mm": 11.205615932074961,
+      "median_position_mm": 6.303294300375652,
+      "p95_position_mm": 44.166868541121154,
+      "mean_orientation_deg": 6.2822640782022505,
+      "joint_limit_violation_rate": 0.0
+    }
+  },
+  "paired_comparison": {
+    "samples": 500,
+    "selection_seed": 2026,
+    "neural": {
+      "mean_position_mm": 10.720389270999174,
+      "median_position_mm": 6.1823360202118405,
+      "p95_position_mm": 37.399729201053255,
+      "mean_orientation_deg": 6.415623138641951,
+      "joint_limit_violation_rate": 0.0,
+      "mean_time_ms_per_solve": 1.0799263992812485,
+      "median_time_ms_per_solve": 0.8634499390609562
+    },
+    "numerical": {
+      "mean_position_mm": 0.8648307048796535,
+      "median_position_mm": 1.7914078450212826e-10,
+      "p95_position_mm": 3.655742817733474e-07,
+      "mean_orientation_deg": 0.6281919587969801,
+      "joint_limit_violation_rate": 0.0,
+      "mean_time_ms_per_solve": 12.137094397097826,
+      "median_time_ms_per_solve": 8.204399957321584
+    }
+  },
+  "metadata": {
+    "seed": 2026,
+    "device": "cpu",
+    "torch_threads": 1,
+    "torch_interop_threads": 2,
+    "thread_environment": {
+      "OMP_NUM_THREADS": null,
+      "MKL_NUM_THREADS": null,
+      "OPENBLAS_NUM_THREADS": null
+    },
+    "cpu_count": 4,
+    "processor": "Intel64 Family 6 Model 78 Stepping 3, GenuineIntel",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "python": "3.12.3",
+    "numpy": "2.2.6",
+    "scipy": "1.16.3",
+    "torch": "2.9.0+cpu",
+    "dataset": "artifacts/data.npz",
+    "dataset_sha256": "aba9f5512380b9444ff35d38fd0aa7220c2ba37cc3cd12a5f761854689c93d61",
+    "checkpoint": "artifacts/model.pt",
+    "checkpoint_sha256": "94ca3a4625824354b274bd2b1dfab3b58c0512c3349f0b9abeb5dedcefd1050d",
+    "baseline": "scipy.optimize.least_squares; analytic Jacobian; up to 3 cold starts; max_nfev=80 per start",
+    "timing": "sequential batch-of-one wall time; guess construction, normalization and output decoding included; warm-up excluded",
+    "test_joint_labels_used": false,
+    "evaluation_elapsed_seconds": 7.999467400019057
+  }
+}
