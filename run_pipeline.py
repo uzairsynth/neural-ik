@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+import platform
 import subprocess
 import sys
 import time
@@ -20,7 +21,9 @@ def refresh_readme():
         "| Solver | Mean position (mm) | Median (mm) | 95th percentile (mm) | Mean orientation (°) | Mean solve (ms) |",
         "|:--|--:|--:|--:|--:|--:|",
     ]
-    for key, name in (("neural", "Neural MLP"), ("numerical", "SciPy least squares")):
+    solvers = [(key, name) for key, name in (("neural", "Neural MLP"), ("numerical", "SciPy least squares"),
+                                             ("analytic", "Closed form (exact)")) if key in paired]
+    for key, name in solvers:
         row = paired[key]
         lines.append(f"| {name} | {row['mean_position_mm']:.3f} | {row['median_position_mm']:.3f} | "
                      f"{row['p95_position_mm']:.3f} | {row['mean_orientation_deg']:.3f} | "
@@ -28,25 +31,26 @@ def refresh_readme():
     lines += ["", f"On **all {metrics['full_test']['samples']:,} test samples**, the neural mean / median / 95th-percentile "
               f"position errors are **{full['mean_position_mm']:.3f} / {full['median_position_mm']:.3f} / "
               f"{full['p95_position_mm']:.3f} mm**; mean orientation error is {full['mean_orientation_deg']:.3f}°. "
-              f"Both solvers have {100 * paired['neural']['joint_limit_violation_rate']:.1f}% / "
-              f"{100 * paired['numerical']['joint_limit_violation_rate']:.1f}% joint-limit violations (neural / numerical)."]
+              "Joint-limit violations: " + ", ".join(
+                  f"{name} {100 * paired[key]['joint_limit_violation_rate']:.1f}%" for key, name in solvers) + "."]
     metadata = metrics["metadata"]
-    lines += ["", f"Environment: Python {metadata['python']}, PyTorch {metadata['torch']}, "
+    lines += ["", f"Evaluation environment: Python {metadata['python']}, PyTorch {metadata['torch']}, "
               f"NumPy {metadata['numpy']}, SciPy {metadata['scipy']}; "
               f"{metadata['torch_threads']} PyTorch inference thread(s). "
               f"CPU: {metadata['processor'] or 'not reported'}."]
     summary_path = ROOT / "artifacts" / "training_summary.json"
     if summary_path.exists():
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        lines += ["", f"Training function: {summary['training_seconds']:.1f} seconds, {summary['epochs_completed']} epochs, "
+        lines += ["", f"Checkpoint training function: {summary['training_seconds']:.1f} seconds, {summary['epochs_completed']} epochs, "
                   f"best validation checkpoint at epoch {summary['best_epoch']}; stopped by {summary['stop_reason']}. "
                   f"Evaluation function: {metadata['evaluation_elapsed_seconds']:.1f} seconds. "
                   "These function timings exclude process startup and imports; the full pipeline time below includes them."]
     runtime_path = ROOT / "artifacts" / "pipeline_summary.json"
     if runtime_path.exists():
         runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
-        lines += ["", f"Complete measured data → training → evaluation → tests run: "
-                  f"**{runtime['total_seconds']:.1f} seconds** on CPU (dependencies already installed)."]
+        host = f"CPU: {runtime['processor']}" if runtime.get("processor") else "CPU"
+        lines += ["", f"Last complete data → training → evaluation → tests run: "
+                  f"**{runtime['total_seconds']:.1f} seconds** on {host} (dependencies already installed)."]
     readme = ROOT / "README.md"
     if readme.exists():
         text = readme.read_text(encoding="utf-8")
@@ -78,7 +82,8 @@ def main():
         subprocess.run([sys.executable, *command], cwd=ROOT, check=True)
         stages[" ".join(command)] = time.perf_counter() - before
     total = time.perf_counter() - started
-    summary = {"total_seconds": total, "within_ten_minutes": total < 600, "stages_seconds": stages}
+    summary = {"total_seconds": total, "within_ten_minutes": total < 600, "stages_seconds": stages,
+               "processor": platform.processor()}
     (ROOT / "artifacts" / "pipeline_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     refresh_readme()
     print(f"Pipeline finished in {total:.1f}s; README measurements refreshed.")

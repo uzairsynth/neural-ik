@@ -1,4 +1,4 @@
-"""Evaluate a trained CPU model and a cold-start SciPy numerical baseline."""
+"""Evaluate a trained CPU model, a cold-start SciPy numerical baseline and the closed form."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ import numpy as np
 import scipy
 import torch
 
+from analytic import analytic_ik
 from baseline import numerical_ik
 from data import DEFAULT_DATA, JOINT_LIMIT, LINK_LENGTHS, ROOT, fk_numpy, load_dataset
 from model import load_model, predict_angles
@@ -131,10 +132,13 @@ def evaluate(
     for pose in paired_targets[: min(count, 20)]:
         predict_angles(model, pose[None, :])
     numerical_ik(paired_targets[0])
+    analytic_ik(paired_targets[0])
     neural_q = np.empty((count, 3), dtype=np.float64)
     numerical_q = np.empty((count, 3), dtype=np.float64)
+    analytic_q = np.empty((count, 3), dtype=np.float64)
     neural_times = np.empty(count, dtype=np.float64)
     numerical_times = np.empty(count, dtype=np.float64)
+    analytic_times = np.empty(count, dtype=np.float64)
     for index, pose in enumerate(paired_targets):
         before = time.perf_counter()
         neural_q[index] = predict_angles(model, pose[None, :])[0]
@@ -142,10 +146,18 @@ def evaluate(
         before = time.perf_counter()
         numerical_q[index] = numerical_ik(pose)
         numerical_times[index] = time.perf_counter() - before
+        before = time.perf_counter()
+        analytic_q[index] = analytic_ik(pose)
+        analytic_times[index] = time.perf_counter() - before
 
     neural_metrics = error_metrics(neural_q, paired_targets)
     numerical_metrics = error_metrics(numerical_q, paired_targets)
-    for metrics, durations in ((neural_metrics, neural_times), (numerical_metrics, numerical_times)):
+    analytic_metrics = error_metrics(analytic_q, paired_targets)
+    for metrics, durations in (
+        (neural_metrics, neural_times),
+        (numerical_metrics, numerical_times),
+        (analytic_metrics, analytic_times),
+    ):
         metrics["mean_time_ms_per_solve"] = float(durations.mean() * 1000.0)
         metrics["median_time_ms_per_solve"] = float(np.median(durations) * 1000.0)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -157,6 +169,7 @@ def evaluate(
             "selection_seed": seed,
             "neural": neural_metrics,
             "numerical": numerical_metrics,
+            "analytic": analytic_metrics,
         },
         "metadata": {
             "seed": seed,
@@ -179,6 +192,7 @@ def evaluate(
             "checkpoint": _portable_path(checkpoint),
             "checkpoint_sha256": _sha256(checkpoint),
             "baseline": "scipy.optimize.least_squares; analytic Jacobian; up to 3 cold starts; max_nfev=80 per start",
+            "analytic": "closed form: wrist point, law-of-cosines elbow, both branches; first legal exact branch, else lower-residual clamped branch",
             "timing": "sequential batch-of-one wall time; guess construction, normalization and output decoding included; warm-up excluded",
             "test_joint_labels_used": False,
             "evaluation_elapsed_seconds": time.perf_counter() - started,

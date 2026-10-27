@@ -6,5 +6,6 @@
     "train.py --max-seconds 360": 399.87984369997866,
     "evaluate.py": 32.058139299973845,
     "-m pytest -q": 20.330278899986297
-  }
+  },
+  "processor": "Intel64 Family 6 Model 78 Stepping 3, GenuineIntel"
 }

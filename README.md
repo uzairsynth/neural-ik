@@ -1,12 +1,12 @@
 # neural-ik
 
-Learn inverse kinematics for a three-joint planar robot arm with PyTorch, then compare a learned CPU solver against bounded numerical optimization.
+Learn inverse kinematics for a three-joint planar robot arm with PyTorch, then compare a learned CPU solver against bounded numerical optimization and the exact closed-form solution.
 
 The link lengths are **0.30, 0.25, 0.15 m**, with each relative joint angle restricted to **±150°**. A target pose contains position `(x, y)` in metres and absolute end-effector orientation `phi` in radians, wrapped to `[-pi, pi)`. The Gradio demo displays orientation in degrees.
 
 ## Run
 
-Python **3.12**, CPU only. From this directory:
+Python **3.12** (3.13 also tested), CPU only. From this directory:
 
 ```bash
 python -m venv .venv
@@ -27,7 +27,7 @@ Individual commands:
 ```bash
 python data.py                       # fixed seed 42, 160k / 20k / 20k
 python train.py                      # Adam, early stopping, best validation checkpoint
-python evaluate.py                   # all-test neural metrics + paired 500-target benchmark
+python evaluate.py                   # all-test neural metrics + paired 500-target benchmark of all three solvers
 python -m pytest -q
 python run_pipeline.py --refresh-readme-only
 ```
@@ -58,19 +58,22 @@ Measured on **500 identical test targets** (selection seed 2026); all times are 
 
 | Solver | Mean position (mm) | Median (mm) | 95th percentile (mm) | Mean orientation (°) | Mean solve (ms) |
 |:--|--:|--:|--:|--:|--:|
-| Neural MLP | 10.720 | 6.182 | 37.400 | 6.416 | 1.080 |
-| SciPy least squares | 0.865 | 0.000 | 0.000 | 0.628 | 12.137 |
+| Neural MLP | 10.720 | 6.182 | 37.400 | 6.416 | 0.367 |
+| SciPy least squares | 0.865 | 0.000 | 0.000 | 0.628 | 3.783 |
+| Closed form (exact) | 0.000 | 0.000 | 0.000 | 0.000 | 0.114 |
 
-On **all 20,000 test samples**, the neural mean / median / 95th-percentile position errors are **11.206 / 6.303 / 44.167 mm**; mean orientation error is 6.282°. Both solvers have 0.0% / 0.0% joint-limit violations (neural / numerical).
+On **all 20,000 test samples**, the neural mean / median / 95th-percentile position errors are **11.206 / 6.303 / 44.167 mm**; mean orientation error is 6.282°. Joint-limit violations: Neural MLP 0.0%, SciPy least squares 0.0%, Closed form (exact) 0.0%.
 
-Environment: Python 3.12.3, PyTorch 2.9.0+cpu, NumPy 2.2.6, SciPy 1.16.3; 1 PyTorch inference thread(s). CPU: Intel64 Family 6 Model 78 Stepping 3, GenuineIntel.
+Evaluation environment: Python 3.13.5, PyTorch 2.9.0+cpu, NumPy 2.2.6, SciPy 1.16.3; 1 PyTorch inference thread(s). CPU: AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD.
 
-Training function: 362.2 seconds, 40 epochs, best validation checkpoint at epoch 38; stopped by wall-time budget. Evaluation function: 8.0 seconds. These function timings exclude process startup and imports; the full pipeline time below includes them.
+Checkpoint training function: 362.2 seconds, 40 epochs, best validation checkpoint at epoch 38; stopped by wall-time budget. Evaluation function: 2.6 seconds. These function timings exclude process startup and imports; the full pipeline time below includes them.
 
-Complete measured data → training → evaluation → tests run: **459.4 seconds** on CPU (dependencies already installed).
+Last complete data → training → evaluation → tests run: **459.4 seconds** on CPU: Intel64 Family 6 Model 78 Stepping 3, GenuineIntel (dependencies already installed).
 <!-- RESULTS_END -->
 
-The paired table compares identical held-out targets. Neural timings include NumPy-to-Torch conversion, normalization, the MLP, pair decoding, and command bounds; numerical timings include seed construction, all optimizer iterations, and any restarts. Both exclude checkpoint/data loading, warm-up, metrics, and plotting. The numerical baseline is `scipy.optimize.least_squares` with a supplied analytic Jacobian, joint bounds, at most three independent deterministic cold starts and 80 function evaluations per start. It uses position residuals and a circular orientation residual scaled by 0.10 m/rad, with no access to test joint labels or neural outputs. It is a local optimizer and can miss a reachable solution.
+The paired table compares identical held-out targets. Neural timings include NumPy-to-Torch conversion, normalization, the MLP, pair decoding, and command bounds; numerical timings include seed construction, all optimizer iterations, and any restarts; closed-form timings include input checks, both branches, the limit check, and clamping. All exclude checkpoint/data loading, warm-up, metrics, and plotting. The numerical baseline is `scipy.optimize.least_squares` with a supplied analytic Jacobian, joint bounds, at most three independent deterministic cold starts and 80 function evaluations per start. It uses position residuals and a circular orientation residual scaled by 0.10 m/rad, with no access to test joint labels or neural outputs. It is a local optimizer and can miss a reachable solution.
+
+The closed-form reference in `analytic.py` steps back one last-link length from the target to the wrist, solves the two-link elbow with the law of cosines, and lets the last joint supply the remaining orientation. That gives two branches (elbow angle positive or negative); within the ±150° limits no other solutions exist, so for this arm it is exact and complete. It returns the first exact branch inside the limits, positive elbow first; when there is none (out of reach, or a joint would pass its limit), it returns the clamped branch with the smaller residual as a best effort. It serves as the accuracy and speed reference: learned and numerical solvers are aimed at arms without such a formula, and this arm keeps the exact answer available to measure them against.
 
 The table rounds to three decimal places; very small numerical residuals therefore appear as `0.000`.
 
@@ -91,10 +94,11 @@ data.py            Seeded dataset and NumPy forward kinematics
 model.py           Normalized MLP, angle decoding, differentiable FK and loss
 train.py           CPU training, early stopping, CSV log and training plot
 baseline.py        Bounded SciPy numerical IK
+analytic.py        Exact closed-form IK, both elbow branches
 evaluate.py        Held-out accuracy, paired solve timings and workspace heatmap
 app.py             Gradio demo
 run_pipeline.py    Reproduce the experiment and refresh this results table
-tests/             FK correctness, differentiability and model shapes
+tests/             FK correctness, differentiability, model shapes and closed-form recovery
 .github/workflows/tests.yml   pytest on pushes and pull requests
 artifacts/         Checkpoint, measurements, logs and plots
 ```
